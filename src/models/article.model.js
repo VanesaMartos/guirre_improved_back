@@ -58,6 +58,10 @@ const updateArticle = (articleId, { title, excerpt, body, slug, category_id }) =
     return db.query('update articles set title = ?, excerpt = ?, body = ?, slug = ?, category_id = ? where id = ?', [title, excerpt, body, slug, category_id, articleId]);
 }
 
+const updateArticlesHasImages = (imageId, articleId, { caption }) => {
+    return db.query('update articles_has_images set image_id = ?, caption = ? where article_id = ?', [imageId, caption, articleId]);
+}
+
 const updateStatusArticle = (articleId, { status, headline = 0 }) => {
     return db.query('update articles set status = ?, headline = ? where id = ?', [status, headline, articleId]);
 }
@@ -86,6 +90,7 @@ module.exports = {
     insertArticlesHasImages,
     insertUsersHasArticles,
     updateArticle,
+    updateArticlesHasImages,
     updateStatusArticle,
     updateFalseHeadline,
     deleteArticle

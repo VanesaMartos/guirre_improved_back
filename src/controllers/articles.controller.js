@@ -1,6 +1,7 @@
 const ArticleModel = require('../models/article.model');
 const { transformTitle, sendEmail } = require('../helpers/utils');
 const SubscribersModel = require('../models/subscriber.model');
+const ImagesModel = require('../models/image.model');
 
 
 const getAllArticles = async (req, res) => {
@@ -110,8 +111,18 @@ const createArticle = async (req, res) => {
         const author_name = req.user.name;
         const slug = transformTitle(title);
         const [result] = await ArticleModel.insert({ author_name, title, excerpt, body, slug, status, category_id, creator_id });
-        const [image] = await ArticleModel.insertImage({ url, source });
-        const [articlesHasImages] = await ArticleModel.insertArticlesHasImages(image.insertId, result.insertId, { caption });
+
+        let [existingImage] = await ImagesModel.selectByUrl(url);
+        let imageId;
+
+        if (existingImage.length > 0) {
+            imageId = existingImage[0].id;
+        } else {
+            const [newImage] = await ArticleModel.insertImage({ url, source });
+            imageId = newImage.insertId;
+        }
+
+        const [articlesHasImages] = await ArticleModel.insertArticlesHasImages(imageId, result.insertId, { caption });
         const [usersHasArticles] = await ArticleModel.insertUsersHasArticles(creator_id, result.insertId)
         const [article] = await ArticleModel.selectById(result.insertId);
         res.json(article[0]);
@@ -129,8 +140,6 @@ const asignArticle = async (req, res) => {
         const [statusArticle] = await ArticleModel.updateStatusArticle(articleId, { status: actual_status, headline });
         const title = article[0].title;
         const link = `http://localhost:4200/articulo/${article[0].slug}`
-
-        console.log(actual_status, statusArticle);
         if (actual_status === "publicado") {
             try {
                 const [subscribers] = await SubscribersModel.selectAll();
@@ -139,12 +148,9 @@ const asignArticle = async (req, res) => {
                 for (email of emails) {
                     sendEmail(email, 'Novedades en Guirre Noticiero', `<p>Hemos publicado un nuevo artículo, visita nuestra página para descubrirlo: <a href=${link}>${title}</a>.</p>`);
                 }
-
             } catch (error) {
-
                 console.log(error);
             }
-
         }
 
         res.json(article);
@@ -158,7 +164,19 @@ const updateArticle = async (req, res) => {
         const { articleId } = req.params;
         const { title, excerpt, body, category_id, url, source, caption } = req.body;
         const slug = transformTitle(title);
+
+        let [existingImage] = await ImagesModel.selectByUrl(url);
+        let imageId;
+
+        if (existingImage.length > 0) {
+            imageId = existingImage[0].id;
+        } else {
+            const [newImage] = await ArticleModel.insertImage({ url, source });
+            imageId = newImage.insertId;
+        }
+
         const [result] = await ArticleModel.updateArticle(articleId, { title, excerpt, body, slug, category_id, url, source, caption });
+        const [articlesHasImages] = await ArticleModel.updateArticlesHasImages(imageId, articleId, { caption });
         const [article] = await ArticleModel.selectById(articleId);
         res.json(article[0]);
     } catch (error) {
